@@ -1,6 +1,7 @@
 package main.scala.gl
 import linalg.{Mat, vec2, vec3, vec4}
 import android.opengl.GLES20._
+import android.util.Log
 /**
   * Created by anton on 12/9/2016.
   */
@@ -68,9 +69,12 @@ class Program ( frag_text : String, vert_text : String ) extends GLObject {
 		case Mat ( n, m, arr ) if n == m => n match {
 			case 2 => glUniformMatrix2fv ( loc, 1 , true, arr ,0)
 			case 3 => glUniformMatrix3fv (loc, 1 , true, arr ,0)
-			case 4 => glUniformMatrix4fv ( loc, 1 , true, arr ,0)
+			case 4 =>
+				glUniformMatrix4fv ( loc, 1 , false, arr ,0)
+				//Log.w( "shader uniform" , arr.length.toString)
 			case _ => throw new Exception ( "unsupported matrix size" )
 		}
+
 		case _ => throw new Exception ( "not implemented program.uniform match for" + v )
 	}
 	def update ( name : String, v : Any ) :Unit = update(uniform ( name ),v )

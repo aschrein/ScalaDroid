@@ -4,13 +4,13 @@ import java.net.URL
 import java.nio.ByteBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
-
+import android.app.Activity
 import android.content.{Context, Intent}
 import android.graphics.{Bitmap, BitmapFactory}
 import android.opengl.GLES20._
 import android.opengl.GLSurfaceView
 import android.os.{AsyncTask, Bundle}
-import android.support.v7.app.AppCompatActivity
+//import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.view.View.OnClickListener
 import android.view.{MotionEvent, View}
@@ -27,7 +27,7 @@ import org.scaladroidtest.R
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-class MainActivity extends AppCompatActivity {
+class MainActivity extends Activity {
 	implicit val context = this
 	lazy val text_view : TextView = findViewById ( R.id.textView ).asInstanceOf [ TextView ]
 	lazy val graphics_view = new MyGLSurfaceView

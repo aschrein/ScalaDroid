@@ -115,7 +115,7 @@ class RendererGL ( implicit assets : AssetManager ) {
 		Texture ( IntBuffer.wrap ( arr ), 256, 256 , GL_RGBA )
 	}
 	def render ( viewproj : Mat , draw_list : Seq[ Command ] ) : Unit = {
-		glClearColor ( 1, 1, 1, 1 )
+		glClearColor ( 1, 0.9f, 1, 1 )
 		glClearDepthf ( 1 )
 		glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
 		val sorted_draw_list = draw_list.sortWith ( _.style.z > _.style.z )
@@ -137,7 +137,7 @@ class RendererGL ( implicit assets : AssetManager ) {
 					}*/
 					GL.using ( program_map ( "rect" ) ) {
 						case program : Program =>
-							program( "viewproj" ) = viewproj
+							program( "viewproj" ) = viewproj.T
 							program ( "offset" ) = center
 							program ( "scale" ) = size
 							program ( "color" ) = style.color.toVec4
