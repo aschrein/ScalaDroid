@@ -7,4 +7,18 @@
     android:layout_height="match_parent"
     android:theme="@android:style/Theme.Material.Light">
 
+    <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <TextView
+                android:text="TextView"
+                android:layout_width="293dp"
+                android:layout_height="329dp" android:id="@+id/textView"
+                android:textColor="@android:color/background_light"/>
+        <Button
+                android:text="Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:id="@+id/login_button"/>
+    </GridLayout>
 </FrameLayout>

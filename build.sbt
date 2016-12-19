@@ -12,7 +12,7 @@ instrumentTestRunner :=
 platformTarget := "android-25"
 
 javacOptions in Compile ++= "-source" :: "1.7" :: "-target" :: "1.7" :: Nil
-
+libraryDependencies += "com.vk" % "androidsdk" % "1.6.7"
 libraryDependencies ++=
   "com.android.support" % "appcompat-v7" % "24.0.0" ::
   "com.android.support.test" % "runner" % "0.5" % "androidTest" ::

@@ -1,13 +1,13 @@
 package main.scala.gl
 
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{Buffer, ByteBuffer, ByteOrder}
 
 import android.opengl.GLES20._
 /**
   * Created by anton on 12/13/2016.
   */
 case class Attribute ( loc : Int, size : Int, `type` : Int, normalized : Boolean = false )
-abstract class Buffer extends GLObject {
+abstract class DevBuffer extends GLObject {
 }
 object BufferUtil {
 	def genBuffer ( ) = {
@@ -16,7 +16,7 @@ object BufferUtil {
 		buf ( 0 )
 	}
 }
-class VertexBuffer ( buf : ByteBuffer, usage : Int, attr : Attribute* ) extends Buffer {
+class VertexBuffer ( buf : Buffer, usage : Int, attr : Attribute* ) extends DevBuffer {
 	val attributes = attr.toList
 	val handle = BufferUtil.genBuffer ( )
 	glBindBuffer ( GL_ARRAY_BUFFER, handle )
@@ -52,7 +52,7 @@ class VertexBuffer ( buf : ByteBuffer, usage : Int, attr : Attribute* ) extends 
 		glBindBuffer ( GL_ARRAY_BUFFER, 0 )
 	}
 }
-class IndexBuffer ( buf : ByteBuffer, usage : Int ) extends Buffer {
+class IndexBuffer ( buf : ByteBuffer, usage : Int ) extends DevBuffer {
 	val handle = BufferUtil.genBuffer ( )
 	glBindBuffer ( GL_ELEMENT_ARRAY_BUFFER, handle )
 	glBufferData ( GL_ELEMENT_ARRAY_BUFFER, buf.limit, buf, usage )
