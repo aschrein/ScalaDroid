@@ -22,10 +22,15 @@ object GL {
 			var reader : BufferedReader = null
 			try {
 				reader = new BufferedReader ( new InputStreamReader ( assets.open ( name ), "UTF-8" ) )
-				val stream = new StringBuilder()
-				for( line <- reader.lines().toArray) {
-					stream.append(line).append("\n")
+				val stream = new StringBuilder ( )
+				var line : String = null
+				def appendLine() : Unit = reader.readLine match {
+					case null =>
+					case l : String =>
+						stream.append ( l ).append ("\n" )
+						appendLine()
 				}
+				appendLine()
 				return stream.toString
 			} catch {
 				case x : IOException =>

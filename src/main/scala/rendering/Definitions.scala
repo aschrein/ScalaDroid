@@ -1,4 +1,5 @@
 package main.scala.rendering
+import android.graphics.Bitmap
 import linalg._
 /**
   * Created by anton on 12/16/2016.
@@ -15,9 +16,10 @@ object Definitions {
 		}
 	}
 }
-case class Style( z : Float = 0 , size : Float = 1 , color : Int = 0x000000ff , shadow_size : Float  = 1 , shadow_color : Int = 0x00000080 )
+case class Style( z : Float = 0 , size : Float = 1 , color : Int = 0x000000ff , shadow_size : Float  = 1 , shadow_color : Int = 0x00000080 , texture : Any = null )
 trait Renderer {
 	def render( draw_list : Seq[ Command ] ) : Unit
+	def genTexture( bitmap : Bitmap ) : Any
 }
 class Command( val style : Style )
 case class Rect( center : vec2 , size : vec2 , pstyle : Style ) extends Command( pstyle )

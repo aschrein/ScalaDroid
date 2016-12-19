@@ -31,8 +31,11 @@ class Program ( frag_text : String, vert_text : String ) extends GLObject {
 	glAttachShader ( program, fs )
 	glLinkProgram ( program )
 	glValidateProgram ( program )
-	val prog_validation = glGetProgramInfoLog ( program )
-	if ( prog_validation != null && prog_validation != "" ) {
+	val pstatus = Array(0)
+	glGetProgramiv(program,GL_LINK_STATUS,pstatus,0)
+
+	if ( pstatus( 0 ) == 0 ) {
+		val prog_validation = glGetProgramInfoLog ( program )
 		println ( Program.enumerateLines ( frag_text ) )
 		println ( "__________________" )
 		println ( Program.enumerateLines ( vert_text ) )

@@ -6,15 +6,13 @@ useSupportVectors
 versionCode := Some(1)
 version := "0.1-SNAPSHOT"
 
-instrumentTestRunner :=
-  "android.support.test.runner.AndroidJUnitRunner"
 
-platformTarget := "android-25"
-
-javacOptions in Compile ++= "-source" :: "1.7" :: "-target" :: "1.7" :: Nil
+platformTarget in Android := "android-21"
+proguardScala in Android := true
+dexMulti in Android := true
+useProguardInDebug := false
+javacOptions in Compile ++= "-source" :: "1.6" :: "-target" :: "1.6" :: Nil
 libraryDependencies += "com.vk" % "androidsdk" % "1.6.7"
-libraryDependencies ++=
-  "com.android.support" % "appcompat-v7" % "24.0.0" ::
-  "com.android.support.test" % "runner" % "0.5" % "androidTest" ::
-  "com.android.support.test.espresso" % "espresso-core" % "2.2.2" % "androidTest" ::
-  Nil
+libraryDependencies += "com.android.support" % "appcompat-v7" % "25.0.0"
+libraryDependencies += "com.android.support" % "multidex" % "1.0.0"
+libraryDependencies += "com.android.support" % "support-v4" % "25.0.0"

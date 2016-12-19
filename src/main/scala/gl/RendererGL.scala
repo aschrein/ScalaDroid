@@ -1,13 +1,16 @@
 package main.scala.gl
 import java.nio.{ByteBuffer, ByteOrder, IntBuffer}
 import java.util.logging.{Level, Logger}
+
 import android.content.res.AssetManager
 import android.graphics.{Bitmap, Canvas, Paint}
 import android.opengl.GLES20._
-import linalg.{ivec2, vec2, vec3, vec4}
+import linalg._
 import main.scala.rendering._
 import main.scala.rendering.Definitions._
 import GL._
+import android.opengl.{GLU, GLUtils}
+
 import scala.collection.mutable
 /**
   * Created by anton on 12/16/2016.
@@ -28,7 +31,7 @@ object TEMP {
 		for ( i <- index_array ) index_buffer putShort ( i + head ).toShort
 	}
 }
-class RendererGL ( implicit assets : AssetManager ) extends Renderer {
+class RendererGL ( implicit assets : AssetManager ) {
 	glDisable ( GL_DEPTH_TEST )
 	//glDepthFunc ( GL_LEQUAL )
 	glDisable ( GL_CULL_FACE )
@@ -48,17 +51,19 @@ class RendererGL ( implicit assets : AssetManager ) extends Renderer {
 			  |varying vec2 uv;
 			  |void main()
 			  |{
-			  |	gl_FragColor = color;//texture2D( texture , uv );
+			  |float alpha = length( uv - 0.5 ) < 0.5 ? 1.0 : 0.0;
+			  |	gl_FragColor = color * texture2D( texture , uv ) * vec4( vec3(1) , alpha );
 			  |}""".stripMargin,
 			"""
 			  |uniform vec2 offset;
 			  |uniform vec2 scale;
+			  |uniform mat4 viewproj;
 			  |attribute vec2 position;
 			  |varying vec2 uv;
 			  |void main()
 			  |{
 			  |	uv = vec2( 0.5 , -0.5 ) * position + 0.5;
-			  |	gl_Position = vec4( position * scale + offset , 0.0 , 1.0 );
+			  |	gl_Position = viewproj * vec4( position * scale + offset , 0.0 , 1.0 );
 			  |}""".stripMargin
 		)
 
@@ -107,9 +112,9 @@ class RendererGL ( implicit assets : AssetManager ) extends Renderer {
 		canvas.drawText ( "Hello World", 16, 112, textPaint )
 		val arr = new Array[ Int ]( 256 * 256 )
 		bitmap.getPixels ( arr, 0, 256, 0, 0, 256, 256 )
-		new Texture ( IntBuffer.wrap ( arr ), 256, 256 , GL_RGBA )
+		Texture ( IntBuffer.wrap ( arr ), 256, 256 , GL_RGBA )
 	}
-	override def render ( draw_list : Seq[ Command ] ) : Unit = {
+	def render ( viewproj : Mat , draw_list : Seq[ Command ] ) : Unit = {
 		glClearColor ( 1, 1, 1, 1 )
 		glClearDepthf ( 1 )
 		glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
@@ -132,10 +137,12 @@ class RendererGL ( implicit assets : AssetManager ) extends Renderer {
 					}*/
 					GL.using ( program_map ( "rect" ) ) {
 						case program : Program =>
+							program( "viewproj" ) = viewproj
 							program ( "offset" ) = center
 							program ( "scale" ) = size
 							program ( "color" ) = style.color.toVec4
-							//program ( "texture" ) = (font_tex, 0)
+							if( style.texture != null ) program ( "texture" ) = (style.texture.asInstanceOf[Texture], 0)
+							else program( "texture" ) = ( 0 , 0 )
 							glDrawArrays ( GL_TRIANGLE_FAN, 0, 4 )
 					}
 				}
