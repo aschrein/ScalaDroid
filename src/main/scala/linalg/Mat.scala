@@ -11,6 +11,12 @@ object Mat {
 		c.x, c.y, c.z, c.w,
 		d.x, d.y, d.z, d.w
 	) )
+	def Mat4Identity = new Mat ( 4, 4, Array (
+		1.0f , 0.0f , 0.0f , 0.0f ,
+		0.0f , 1.0f , 0.0f , 0.0f ,
+		0.0f , 0.0f , 1.0f , 0.0f ,
+		0.0f , 0.0f , 0.0f , 1.0f
+	) )
 }
 case class Mat ( N : Int, M : Int, m : Array[ Float ] ) {
 	def EPS = 1.0e-4f

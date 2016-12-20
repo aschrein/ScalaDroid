@@ -12,32 +12,22 @@ import java.io.InputStream;
 /**
  * Created by anton on 12/19/2016.
  */
-public class DownloadImageTask extends AsyncTask< String, Void, Bitmap >
+abstract public class DownloadTask< T > extends AsyncTask< String, Void, T >
 {
-	BitmapCallback callback;
-	public DownloadImageTask( BitmapCallback callback )
-	{
-		this.callback = callback;
-	}
-
-	protected Bitmap doInBackground( String... urls )
+	protected T doInBackground( String... urls )
 	{
 		String urldisplay = urls[ 0 ];
-		Bitmap bitmap = null;
+		T out = null;
 		try
 		{
 			InputStream in = new java.net.URL( urldisplay ).openStream( );
-			bitmap = BitmapFactory.decodeStream( in );
+			out = process( in );
 		} catch( Exception e )
 		{
 			Log.e( "Error", e.getMessage( ) );
 			e.printStackTrace( );
 		}
-		return bitmap;
+		return out;
 	}
-
-	protected void onPostExecute( Bitmap result )
-	{
-		callback.consume( result );
-	}
+	public abstract T process( InputStream istream );
 }

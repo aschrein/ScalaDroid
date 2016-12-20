@@ -1,4 +1,4 @@
-package main.scala.gl
+package main.scala.rendering.gl
 import linalg.{Mat, vec2, vec3, vec4}
 import android.opengl.GLES20._
 import android.util.Log
@@ -14,8 +14,8 @@ class Program ( frag_text : String, vert_text : String ) extends GLObject {
 	glCompileShader ( vs )
 	val vs_validation = glGetShaderInfoLog ( vs )
 	if ( vs_validation != null && vs_validation != "" ) {
-		println ( Program.enumerateLines ( vert_text ) )
-		println ( vs_validation )
+		Log.w ( this.getClass.getSimpleName, Program.enumerateLines ( vert_text ) )
+		Log.w ( this.getClass.getSimpleName, vs_validation )
 		throw new Exception ( "invalid vertex shader source" )
 	}
 	val fs = glCreateShader ( GL_FRAGMENT_SHADER )
@@ -23,8 +23,8 @@ class Program ( frag_text : String, vert_text : String ) extends GLObject {
 	glCompileShader ( fs )
 	val fs_validation = glGetShaderInfoLog ( fs )
 	if ( fs_validation != null && fs_validation != "" ) {
-		println ( Program.enumerateLines ( frag_text ) )
-		println ( fs_validation )
+		Log.w ( this.getClass.getSimpleName, Program.enumerateLines ( frag_text ) )
+		Log.w ( this.getClass.getSimpleName, fs_validation )
 		throw new Exception ( "invalid fragment shader source" )
 	}
 	val program = glCreateProgram ( )
@@ -37,10 +37,10 @@ class Program ( frag_text : String, vert_text : String ) extends GLObject {
 
 	if ( pstatus( 0 ) == 0 ) {
 		val prog_validation = glGetProgramInfoLog ( program )
-		println ( Program.enumerateLines ( frag_text ) )
-		println ( "__________________" )
-		println ( Program.enumerateLines ( vert_text ) )
-		println ( prog_validation )
+		Log.w ( this.getClass.getSimpleName, Program.enumerateLines ( frag_text ) )
+		Log.w ( this.getClass.getSimpleName, "__________________" )
+		Log.w ( this.getClass.getSimpleName, Program.enumerateLines ( vert_text ) )
+		Log.w ( this.getClass.getSimpleName, prog_validation )
 		throw new Exception ( "program linkage error" )
 	}
 	def attribute ( name : String ) = {

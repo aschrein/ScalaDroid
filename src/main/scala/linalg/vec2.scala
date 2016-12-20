@@ -24,11 +24,11 @@ case class vec2( x : Float, y : Float )
 		x * k,
 		y * k
 	)
-	def mod2( ) : Float = this * this
-	def mod( ) : Float = Math.sqrt( this mod2 ) toFloat
-	def norm( ) : vec2 = this / this.mod
-	def ^( that : vec2 ) : Float = x * that.y - y * that.x
-	def angle( that : vec2 ) : Float = {
+	def mod2 = this * this
+	def mod = Math.sqrt( this.mod2 ) toFloat
+	def norm  = this / this.mod
+	def ^( that : vec2 ) = x * that.y - y * that.x
+	def angle( that : vec2 ) = {
 		val d = this * that
 		val x = this ^ that
 		val acos = Math.acos( d toDouble ) toFloat;
@@ -57,11 +57,11 @@ case class ivec2( x : Int, y : Int )
 		x * k,
 		y * k
 	)
-	def mod2( ) : Int = this * this
-	def mod( ) : Float = Math.sqrt( this mod2 ) toFloat
-	def norm( ) : vec2 = this / this.mod
-	def ^( that : ivec2 ) : Int = x * that.y - y * that.x
-	def angle( that : ivec2 ) : Float = {
+	def mod2 = this * this
+	def mod = Math.sqrt( this mod2 ) toFloat
+	def norm = this / this.mod
+	def ^( that : ivec2 ) = x * that.y - y * that.x
+	def angle( that : ivec2 ) = {
 		val d = this * that
 		val x = this ^ that
 		val acos = Math.acos( d toDouble ) toFloat;

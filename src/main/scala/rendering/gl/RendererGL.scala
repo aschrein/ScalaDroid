@@ -1,4 +1,4 @@
-package main.scala.gl
+package main.scala.rendering.gl
 import java.nio.{ByteBuffer, ByteOrder, IntBuffer}
 import java.util.logging.{Level, Logger}
 

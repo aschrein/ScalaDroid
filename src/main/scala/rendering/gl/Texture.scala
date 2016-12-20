@@ -1,4 +1,4 @@
-package main.scala.gl
+package main.scala.rendering.gl
 
 import java.nio.{Buffer, ByteBuffer, IntBuffer}
 

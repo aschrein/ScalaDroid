@@ -1,8 +1,9 @@
-package main.scala.gl
+package main.scala.rendering.gl
 import java.io.{BufferedReader, IOException, InputStreamReader}
-import java.util.logging.{Level, Logger}
+
 import android.content.Context
 import android.content.res.AssetManager
+import android.util.Log
 /**
   * Created by anton on 12/9/2016.
   */
@@ -34,14 +35,14 @@ object GL {
 				return stream.toString
 			} catch {
 				case x : IOException =>
-					Logger.getGlobal.log ( Level.WARNING, x.getLocalizedMessage )
+					Log.w ( this.getClass.getSimpleName, x.getLocalizedMessage )
 			} finally {
 				if ( reader != null ) {
 					try {
 						reader.close ( )
 					} catch {
 						case x : IOException =>
-							Logger.getGlobal.log ( Level.WARNING, x.getLocalizedMessage )
+							Log.w ( this.getClass.getSimpleName, x.getLocalizedMessage )
 					}
 				}
 			}
