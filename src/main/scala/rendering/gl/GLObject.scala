@@ -8,12 +8,12 @@ import android.util.Log
   * Created by anton on 12/9/2016.
   */
 object GL {
-	def using[ O <: GLObject, T ] ( obj : O )( body : O => T ) = if ( obj != null ) {
+	def using[ O <: GLBindable, T ] ( obj : O )( body : O => T ) = if ( obj != null ) {
 		obj.bind ( )
 		body ( obj )
 		obj.unbind ( )
 	}
-	def using[ T ] ( objects : GLObject* )( body : Seq[ GLObject ] => T ) = if ( !objects.contains ( null ) ) {
+	def using[ T ] ( objects : GLBindable* )( body : Seq[ GLBindable ] => T ) = if ( !objects.contains ( null ) ) {
 		objects.foreach ( o => o.bind ( ) )
 		body ( objects )
 		objects.foreach ( o => o.unbind ( ) )
@@ -52,6 +52,8 @@ object GL {
 }
 trait GLObject {
 	def dispose ( ) : Unit
+}
+trait GLBindable extends GLObject {
 	def bind ( ) : Unit
 	def unbind ( ) : Unit
 }

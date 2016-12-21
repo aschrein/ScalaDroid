@@ -5,10 +5,10 @@ import linalg.vec2
   */
 class Layouter( relationGraphView: RelationGraphView ) {
 	def force( p0 : vec2 , p1 : vec2 ) = Math.max(
-		Math.min( 1.0f , -1.0f / ( 1.0f + ( p1 - p0 ).mod2 ) + ( p1 - p0 ).mod2 )
+		Math.min( 1.0f , -1.0f / ( 1.0f + ( p1 - p0 ).mod2 ) + ( p1 - p0 ).mod )
 		, -1.0f )
 	var last_time = 0.0f
-	var dt = 0.1f
+	var dt = 0.02f
 	def tick() = {
 		val relations = relationGraphView.relation_graph.getRelations
 			.map( p => ( relationGraphView.getView(p._1) , relationGraphView.getView(p._2) ) )

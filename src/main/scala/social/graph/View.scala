@@ -18,12 +18,12 @@ class RelationGraphView( val relation_graph: RelationGraph ) {
 		val view = views.get(person)
 		view match {
 			case None =>
-				val r = Math.sqrt( Math.random() * 10 ).toFloat
+				val r = Math.sqrt( Math.random() ).toFloat * 20
 				val phi = ( Math.random() * Math.PI ).toFloat * 2
 				val new_view = new PersonView( new WeakReference(person) , vec2 ( Math.cos(phi).toFloat , Math.sin(phi).toFloat ) * r )
 				val image_ld = new DownloadImageTask( bitmap => new_view.bitmap = Some( bitmap ) )
 				views.put( person , new_view )
-				image_ld.execute( person.image_url )
+				image_ld.execute( person.image_url( 0 ) )
 				new_view
 			case Some( _ ) => view.get
 		}

@@ -7,65 +7,75 @@ import com.vk.sdk.api.VKRequest.VKRequestListener
 import com.vk.sdk.api._
 import main.scala.social.graph.{Person, RelationGraph}
 import org.json.JSONObject
+
+import scala.collection.mutable.ArrayBuffer
 /**
   * Created by anton on 12/20/2016.
   */
 object SocialMapper {
-	def init( context : Activity) = {
+	def init ( context : Activity ) = {
 		VKSdk.login ( context )
 	}
-	def mapUser( relationGraph: RelationGraph , id : String = null ) : Unit = {
-		val req = new VKRequest("users.get",
-			if( id != null ) VKParameters.from ( VKApiConst.FIELDS, "photo",VKApiConst.USER_ID, id )
-			else VKParameters.from ( VKApiConst.FIELDS, "photo" ) )
+	def image_fields = "photo_50,photo_100,photo_200"
+	def mapUser ( relationGraph : RelationGraph, id : String = null ) : Unit = {
+		val req = new VKRequest ( "users.get",
+			if ( id != null ) VKParameters.from ( VKApiConst.FIELDS,image_fields , VKApiConst.USER_ID, id )
+			else VKParameters.from ( VKApiConst.FIELDS, image_fields ) )
 		req.executeWithListener ( new VKRequestListener ( ) {
 			override def onComplete ( response : VKResponse ) : Unit = {
 				val json = new JSONObject ( response.responseString )
-				val resp = json.getJSONArray( "response" )
+				val resp = json.getJSONArray ( "response" )
 				val item = resp.getJSONObject ( 0 )
-				val item_id = item.getString( "id" )
-				val first_name = item.getString ( "first_name" )
-				val last_name = item.getString ( "last_name" )
-				val avatar_url = item.getString ( "photo" )
-				val person = relationGraph.createPerson( first_name , last_name , item_id , avatar_url )
-				mapFriends(relationGraph , person)
-				Log.i( this.getClass.getSimpleName , response.responseString )
+				val person = parsePerson( relationGraph,item )
+				mapFriends ( relationGraph, person )
+				Log.i ( this.getClass.getSimpleName, response.responseString )
 			}
-			override def onError ( error : VKError ): Unit = {
-				Log.e( this.getClass.getSimpleName , error.errorMessage )
+			override def onError ( error : VKError ) : Unit = {
+				Log.e ( this.getClass.getSimpleName, error.errorMessage )
 			}
-			override def attemptFailed ( request : VKRequest, attemptNumber : Int, totalAttempts : Int ): Unit = {
-				Log.e( this.getClass.getSimpleName , "attemptFailed" )
+			override def attemptFailed ( request : VKRequest, attemptNumber : Int, totalAttempts : Int ) : Unit = {
+				Log.e ( this.getClass.getSimpleName, "attemptFailed" )
 			}
 		} )
 	}
-	def mapFriends( relationGraph: RelationGraph , person: Person ) : Unit = {
-		val req = new VKRequest("friends.get",
-			VKParameters.from ( VKApiConst.FIELDS, "photo",VKApiConst.USER_ID, person.id ) )
-			//else VKParameters.from ( VKApiConst.FIELDS, "photo" ) )
+	def parsePerson( relationGraph : RelationGraph,item: JSONObject ) = {
+		val item_id = item.getString ( "id" )
+		val first_name = item.getString ( "first_name" )
+		val last_name = item.getString ( "last_name" )
+		val url_arr = ArrayBuffer.empty[ String ]
+		for( img_size <- image_fields.split(",") ) {
+			if( item.has( img_size ) ) {
+				url_arr += item.getString( img_size )
+			}
+		}
+		relationGraph.createPerson ( first_name, last_name, item_id, url_arr )
+	}
+	def mapFriends ( relationGraph : RelationGraph, person : Person, depth : Int = 1 ) : Unit = {
+		val req = new VKRequest ( "friends.get",
+			VKParameters.from ( VKApiConst.FIELDS, image_fields, VKApiConst.USER_ID, person.id ) )
 		req.executeWithListener ( new VKRequestListener ( ) {
 			override def onComplete ( response : VKResponse ) : Unit = {
+				//Log.i ( this.getClass.getSimpleName, response.responseString )
 				val json = new JSONObject ( response.responseString )
 				val resp = json.getJSONObject ( "response" )
 				val count = resp.getInt ( "count" )
 				val items = resp.getJSONArray ( "items" )
 				for ( i <- 0 until count ) {
 					val item = items.getJSONObject ( i )
-					val item_id = item.getString( "id" )
-					val first_name = item.getString ( "first_name" )
-					val last_name = item.getString ( "last_name" )
-					val avatar_url = item.getString ( "photo" )
-					relationGraph.createPerson( first_name , last_name , item_id , avatar_url ) friendWith person
+					val new_person = parsePerson( relationGraph,item )
+					new_person friendWith person
+					//Log.w ( this.getClass.getSimpleName, new_person.toString )
+					if ( depth > 0 ) {
+						mapFriends ( relationGraph, new_person, depth - 1 )
+					}
 				}
-				Log.i( this.getClass.getSimpleName , response.responseString )
 			}
-			override def onError ( error : VKError ): Unit = {
-				Log.e( this.getClass.getSimpleName , error.errorMessage )
+			override def onError ( error : VKError ) : Unit = {
+				Log.e ( this.getClass.getSimpleName, error.errorMessage )
 			}
-			override def attemptFailed ( request : VKRequest, attemptNumber : Int, totalAttempts : Int ): Unit = {
-				Log.e( this.getClass.getSimpleName , "attemptFailed" )
+			override def attemptFailed ( request : VKRequest, attemptNumber : Int, totalAttempts : Int ) : Unit = {
+				Log.e ( this.getClass.getSimpleName, "attemptFailed" )
 			}
 		} )
 	}
-
 }

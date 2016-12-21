@@ -7,7 +7,7 @@ import android.opengl.GLES20._
   * Created by anton on 12/13/2016.
   */
 case class Attribute ( loc : Int, size : Int, `type` : Int, normalized : Boolean = false )
-abstract class DevBuffer extends GLObject {
+abstract class DevBuffer extends GLBindable {
 }
 object BufferUtil {
 	def genBuffer ( ) = {

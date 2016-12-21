@@ -1,7 +1,7 @@
 package main.scala.social.graph
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-case class Person ( first_name : String, last_name : String, id : String, image_url : String )( implicit context : RelationGraph ) {
+case class Person ( first_name : String, last_name : String, id : String, image_url : Seq[String] )( implicit context : RelationGraph ) {
 	def friendWith ( person : Person ) : Unit = {
 		context addRelation (this, person)
 	}
@@ -14,7 +14,7 @@ class RelationGraph {
 	implicit val context = this
 	private val persons = mutable.ArrayBuffer.empty[ Person ]
 	private val edges = new mutable.HashMap[ Person, ArrayBuffer[ Person ] ]( )
-	def createPerson( first_name : String, last_name : String, id : String, image_url : String ) = {
+	def createPerson( first_name : String, last_name : String, id : String, image_url : Seq[String] ) = {
 		val new_person = Person(first_name,last_name,id,image_url)
 		persons += new_person
 		new_person

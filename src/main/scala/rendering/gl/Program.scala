@@ -8,7 +8,7 @@ import android.util.Log
 object Program {
 	def enumerateLines ( text : String ) = text.split ( "\n" ).zipWithIndex.map ( pair => pair._2 + ":" + pair._1 + "\n" ).reduce ( _ + _ )
 }
-class Program ( frag_text : String, vert_text : String ) extends GLObject {
+class Program ( frag_text : String, vert_text : String ) extends GLBindable {
 	val vs = glCreateShader ( GL_VERTEX_SHADER )
 	glShaderSource ( vs, vert_text )
 	glCompileShader ( vs )
