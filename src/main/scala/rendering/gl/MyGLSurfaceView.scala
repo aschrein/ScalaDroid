@@ -9,8 +9,10 @@ import android.opengl.GLSurfaceView
 import android.util.Log
 import android.view.MotionEvent
 import linalg.{ivec2, vec2, vec3, vec4}
+import main.java.Natives
 import main.scala.rendering.{Rect, Style}
-import main.scala.social.graph.{Layouter, PersonView, RelationGraph, RelationGraphView}
+import main.scala.social.graph._
+import main.scala.utilities.DownloadImageTask
 import utilities.Camera
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -32,8 +34,7 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 	implicit val assets = context.getAssets
 	val renderer = new MyGLRenderer ( )
 	setRenderer ( renderer )
-	var relationGraphView : RelationGraphView = null
-	var layouter : Layouter = null
+	var relationGraph : RelationGraph = null
 	class MyGLRenderer extends GLSurfaceView.Renderer {
 		lazy val circles_program = new Program (
 			"""precision highp float;
@@ -73,14 +74,25 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 			  |	gl_Position = viewproj * vec4( position , 0.0 , 1.0 );
 			  |}""".stripMargin
 		)
-		//var renderer : RendererGL = null
 		override def onSurfaceCreated ( unused : GL10, config : EGLConfig ) : Unit = {
-			//renderer = new RendererGL
 		}
-		val textures = new mutable.WeakHashMap[ Bitmap, Texture ]
 		lazy val atlas = new TextureAtlas ( 2048, 2048, 32 )
+		var uv_queue = new ArrayBuffer[ (Int, Int, Bitmap) ]( )
+		def updateUVMapping ( person_id : Int, person_view_id : Int, old_uv_mapping_id : Int, lod : Float ) = {
+			val image_ld = new DownloadImageTask ( bitmap => {
+				renderer.synchronized {
+					uv_queue += Tuple3 ( person_view_id, old_uv_mapping_id, bitmap )
+				}
+			} )
+			image_ld.execute ( relationGraph.getUsers ( person_id ).image_url ( 0 ) )
+		}
+		val uv_requests = ByteBuffer.allocateDirect ( 4 + 4 * 4 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
+		var vertices = ByteBuffer.allocateDirect ( ( 8 + 8 ) * 6 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
+		val edges = ByteBuffer.allocateDirect ( 128 * 16 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
+		val relation_map = new mutable.HashMap[(Person,Person),Int]()
+
 		override def onDrawFrame ( unused : GL10 ) : Unit = {
-			if ( relationGraphView != null ) {
+			if ( relationGraph != null ) {
 				val viewproj = Camera.perspLook (
 					vec3 ( cam_point.x, cam_point.y, cam_z ),
 					vec3 ( cam_point.x, cam_point.y, 0.0f ), /// + vec3 ( 2.0f , 2.0f , 2.0f ),
@@ -91,70 +103,49 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 				glClearDepthf ( 1 )
 				glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
 				glViewport ( 0, 0, getWidth, getHeight )
-				//val sorted_draw_list = draw_list.sortWith ( _.style.z > _.style.z )
-				val relations = relationGraphView.relation_graph.getRelations
-				//Log.w( "RELATIONS COUNT" , relations.length.toString )
-				val edges = ByteBuffer.allocate ( 16 * relations.length ).order ( ByteOrder.LITTLE_ENDIAN )
-
-				layouter.tick ( )
-
-				relations foreach ( r => {
-					val p0 = relationGraphView.getView ( r._1 )
-					val p1 = relationGraphView.getView ( r._2 )
-					edges putFloat p0.pos.x putFloat p0.pos.y
-					edges putFloat p1.pos.x putFloat p1.pos.y
+				var newPesons : Seq[ Person ] = null
+				var newPairs : Seq[ (Person,Person)] = null
+				socialSubscriber synchronized {
+					newPesons = socialSubscriber.persons_added.clone()
+					socialSubscriber.persons_added.clear()
+					newPairs = socialSubscriber.pairs_added.clone()
+					socialSubscriber.pairs_added.clear()
+				}
+				newPesons.foreach ( u => if( u.view_id < 0 ) u.view_id = Natives.createView ( u.id ) )
+				newPairs.foreach( r => relation_map.getOrElseUpdate(r,Natives.createRelationView(r._1.view_id,r._2.view_id)))
+				var new_uv_queue = new ArrayBuffer[ (Int, Int, Bitmap) ]( )
+				renderer.synchronized {
+					val old_uv_queue = uv_queue
+					uv_queue = new_uv_queue
+					new_uv_queue = old_uv_queue
+				}
+				val uv_responses = ByteBuffer.allocateDirect ( 4 + 4 * 2 * new_uv_queue.length ).order ( ByteOrder.LITTLE_ENDIAN )
+				uv_responses putInt new_uv_queue.length
+				new_uv_queue.foreach ( p => {
+					atlas.free ( p._2 )
+					val new_uv_mapping_id = atlas.allocate ( p._3 )
+					uv_responses putInt p._1 putInt new_uv_mapping_id
 				} )
-				edges.rewind ( )
+				uv_requests.position ( 0 )
+				uv_requests putInt (0, 0)
+
+
+				Natives.renderVertexBuffer ( atlas.getMappings, vertices,edges, uv_requests, uv_responses )
+
+				edges.position( 0 )
+				edges.limit( socialSubscriber.pairs_count * 16 )
 				val edge_buffer = new VertexBuffer ( edges, GL_STATIC_DRAW, Attribute ( 0, 2, GL_FLOAT, false ) )
 				line_program.bind ( )
 				edge_buffer.bind ( )
 				line_program ( "viewproj" ) = viewproj
 				line_program ( "color" ) = 0x000000FF.toVec4
 				glViewport ( 0, 0, getWidth, getHeight )
-				glDrawArrays ( GL_LINES, 0, relations.length * 2 )
+				glDrawArrays ( GL_LINES, 0, socialSubscriber.pairs_count * 2 )
 				edge_buffer.unbind ( )
 				edge_buffer.dispose ( )
 
-
-				val views = relationGraphView.relation_graph.getUsers.map ( u => relationGraphView.getView ( u ) )
-				views.foreach ( person_view =>
-					person_view.bitmap match {
-						case Some ( b ) =>
-							(textures.getOrElseUpdate ( b, {
-								val texture = Texture ( b )
-								val alloc = atlas.allocate ( texture, ivec2 ( texture.width, texture.height ) )
-								//Log.i( "ALLOC" , alloc.toString() )
-								texture
-							} ), 0)
-						case None =>
-					}
-				)
-				val vertices = ByteBuffer.allocate ( ( 8 + 8 ) * 6 * views.length ).order ( ByteOrder.LITTLE_ENDIAN )
-				layouter.tick ( )
-				views foreach ( v => {
-					val pos = v.pos
-					val size = 0.1f
-					val mapping = v.bitmap match {
-						case Some( b ) => textures.get(b) match {
-							case Some( t ) => atlas.getMapping(t)
-							case None => ( 1.0f , 1.0f , 0.0f , 0.0f )
-						}
-						case None => ( 1.0f , 1.0f , 0.0f , 0.0f )
-					}
-					vertices putFloat pos.x - size putFloat pos.y - size
-					vertices putFloat mapping._1 putFloat mapping._2
-					vertices putFloat pos.x - size putFloat pos.y + size
-					vertices putFloat mapping._1 putFloat mapping._2 + mapping._4
-					vertices putFloat pos.x + size putFloat pos.y + size
-					vertices putFloat mapping._1 + mapping._3 putFloat mapping._2 + mapping._4
-					vertices putFloat pos.x - size putFloat pos.y - size
-					vertices putFloat mapping._1 putFloat mapping._2
-					vertices putFloat pos.x + size putFloat pos.y + size
-					vertices putFloat mapping._1 + mapping._3 putFloat mapping._2 + mapping._4
-					vertices putFloat pos.x + size putFloat pos.y - size
-					vertices putFloat mapping._1 + mapping._3 putFloat mapping._2
-				} )
-				vertices.rewind ( )
+				vertices.position( 0 )
+				vertices.limit(( 8 + 8 ) * 6 * socialSubscriber.persons_count)
 				val vertex_buffer = new VertexBuffer ( vertices, GL_STATIC_DRAW, Attribute ( 0, 2, GL_FLOAT, false ), Attribute ( 1, 2, GL_FLOAT, false ) )
 				vertex_buffer.bind ( )
 				circles_program.bind ( )
@@ -162,31 +153,48 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 				circles_program ( "color" ) = 0xFFFFFFFF.toVec4
 				circles_program ( "texture" ) = (atlas.attached_texture, 0)
 				glViewport ( 0, 0, getWidth, getHeight )
-				glDrawArrays ( GL_TRIANGLES, 0, views.length * 6 )
+				glDrawArrays ( GL_TRIANGLES, 0, relationGraph.getUsers.length * 6 )
 				vertex_buffer.unbind ( )
 				vertex_buffer.dispose ( )
-				atlas.draw()
-				/*rect_buffer.bind ( )
-				relationGraphView.relation_graph.getUsers.map ( u => relationGraphView.getView ( u ) ) foreach( person_view => {
-					circles_program ( "offset" ) = person_view.pos
-					circles_program ( "scale" ) = vec2( 0.2f , 0.2f )
-					circles_program ( "color" ) = 0xFFFFFFFF.toVec4
-					person_view.bitmap match {
-						case Some( b ) =>
-							circles_program ( "texture" ) = ( textures.getOrElseUpdate( b , Texture( b ) ) , 0)
-						case None =>
-					}
-					glDrawArrays ( GL_TRIANGLE_FAN, 0, 4 )
-				} )*/
+				atlas.draw ( )
+				val requests_count = uv_requests.getInt
+				//Log.w ( "REQUESTS COUNT", requests_count.toString )
+				for ( i <- 0 until requests_count ) {
+					val person_view_id = uv_requests.getInt
+					val person_id = uv_requests.getInt
+					val old_uv_mapping_id = uv_requests.getInt
+					val lod = uv_requests.getFloat
+					updateUVMapping ( person_id, person_view_id, old_uv_mapping_id, lod )
+				}
 			}
 		}
 		override def onSurfaceChanged ( unused : GL10, width : Int, height : Int ) : Unit = {
 			glViewport ( 0, 0, width, height )
 		}
 	}
+	class SocialSubscriber extends Subscriber {
+		var persons_count = 0
+		var pairs_count = 0
+		val persons_added = new ArrayBuffer[Person]()
+		val pairs_added = new ArrayBuffer[(Person,Person)]()
+		override def onPersonAdded ( person : Person ) : Unit = this synchronized {
+			persons_added += person
+			persons_count += 1
+		}
+		override def onRelationRemoved ( person : Person, person1 : Person ) : Unit = {}
+		override def onPersonRemoved ( person : Person ) : Unit = {}
+		override def onRelationAdded ( person : Person, person1 : Person ) : Unit = this synchronized {
+			pairs_added += Tuple2( person , person1 )
+			pairs_count += 1
+		}
+	}
+	val socialSubscriber = new SocialSubscriber
 	def linkModel ( relationGraph : RelationGraph ) = {
-		relationGraphView = new RelationGraphView ( relationGraph )
-		layouter = new Layouter ( relationGraphView )
+		this.relationGraph = relationGraph
+		relationGraph.addSubscriber(socialSubscriber)
+
+		//relationGraphView = new RelationGraphView ( relationGraph )
+		//layouter = new Layouter ( relationGraphView )
 	}
 	var cam_point = vec2 ( 0.0f, 0.0f )
 	var cam_z = 2.0f

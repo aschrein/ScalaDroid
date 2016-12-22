@@ -96,8 +96,24 @@ class TextureAtlas ( width : Int, height : Int, cell_size : Int, internal_format
 	unbind ( )
 	def getSize = vec2 ( attached_texture.width, attached_texture.height )
 	val bitset = new mutable.BitSet ( width * height / cell_size / cell_size )
-	val map = new mutable.HashMap[ Texture, (Int, Int, Int, Int) ]
-	def allocate ( texture : Texture, size : ivec2 ) : (Float, Float, Float, Float) = {
+	val map = new mutable.ArrayBuffer[ (Int, Int, Int, Int) ]
+	def free( mapping_id : Int ): Unit =
+	{
+		if( mapping_id < 0 || mapping_id > map.length ) return
+		val mapping = map( mapping_id )
+		for ( i <- mapping._2 until mapping._2 + mapping._4 ) {
+			for ( j <- mapping._1 until mapping._1 + mapping._3 ) {
+				bitset.remove ( j + i * width / cell_size )
+			}
+		}
+	}
+	def allocate( bitmap: Bitmap ) : Int = {
+		val texture = Texture( bitmap )
+		val id = allocate( texture , ivec2( texture.width , texture.height ) )
+		texture.dispose()
+		id
+	}
+	def allocate ( texture : Texture, size : ivec2 ) : Int = {
 		def test ( x : Int, y : Int, dx : Int, dy : Int ) : Boolean = {
 			if ( dx == 0 )
 				if ( dy == 0 ) true
@@ -140,13 +156,14 @@ class TextureAtlas ( width : Int, height : Int, cell_size : Int, internal_format
 		}
 		val isize = ivec2 ( ( size.x + cell_size / 2 ) / cell_size, ( size.y + cell_size / 2 ) / cell_size )
 		val p = findProper ( isize.x, isize.y )
+		if( p._1 < 0 ) return -1
 		for ( i <- p._2 until p._2 + isize.y ) {
 			for ( j <- p._1 until p._1 + isize.x ) {
 				bitset.add ( j + i * width / cell_size )
 			}
 		}
 		if ( p._1 >= 0 ) {
-			map.put ( texture, (p._1, p._2, isize.x, isize.y) )
+			map += Tuple4(p._1, p._2, isize.x, isize.y)
 			bind ( )
 			program.bind ( )
 			rect_buffer.bind ( )
@@ -162,8 +179,8 @@ class TextureAtlas ( width : Int, height : Int, cell_size : Int, internal_format
 			glDrawArrays ( GL_TRIANGLE_FAN, 0, 4 )
 			rect_buffer.unbind ( )
 			unbind ( )
-			out
-		} else (0.0f, 0.0f, 0.0f, 0.0f)
+			map.length - 1
+		} else -1
 	}
 	def draw ( ) = {
 		program.bind ( )
@@ -174,7 +191,18 @@ class TextureAtlas ( width : Int, height : Int, cell_size : Int, internal_format
 		glDrawArrays ( GL_TRIANGLE_FAN, 0, 4 )
 		rect_buffer.unbind ( )
 	}
-	def getMapping ( texture : Texture ) = {
+	def getMappings = {
+		val buf = ByteBuffer.allocateDirect( map.length * 16 ).order( ByteOrder.LITTLE_ENDIAN )
+		map.foreach( p => {
+			buf putFloat p._1.toFloat * cell_size.toFloat / width
+			buf putFloat p._2.toFloat * cell_size.toFloat / height
+			buf putFloat p._3.toFloat * cell_size.toFloat / width
+			buf putFloat p._4.toFloat * cell_size.toFloat / height
+		}
+		)
+		buf
+	}
+	/*def getMapping ( texture : Texture ) = {
 		val p = map.getOrElse ( texture, (0, 0, 0, 0) )
 		(
 			p._1.toFloat * cell_size.toFloat / width,
@@ -182,7 +210,7 @@ class TextureAtlas ( width : Int, height : Int, cell_size : Int, internal_format
 			p._3.toFloat * cell_size.toFloat / width,
 			p._4.toFloat * cell_size.toFloat / height
 			)
-	}
+	}*/
 	def free ( key : Any ) = {
 	}
 	def put ( texture : Texture, origin : ivec2, size : ivec2 ) = {

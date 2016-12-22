@@ -20,15 +20,17 @@ object SocialMapper {
 	def mapUser ( relationGraph : RelationGraph, id : String = null ) : Unit = {
 		val req = new VKRequest ( "users.get",
 			if ( id != null ) VKParameters.from ( VKApiConst.FIELDS,image_fields , VKApiConst.USER_ID, id )
-			else VKParameters.from ( VKApiConst.FIELDS, image_fields ) )
+			else VKParameters.from ( VKApiConst.FIELDS, image_fields )
+		)
 		req.executeWithListener ( new VKRequestListener ( ) {
 			override def onComplete ( response : VKResponse ) : Unit = {
+				println(  response.responseString )
 				val json = new JSONObject ( response.responseString )
 				val resp = json.getJSONArray ( "response" )
 				val item = resp.getJSONObject ( 0 )
 				val person = parsePerson( relationGraph,item )
 				mapFriends ( relationGraph, person )
-				Log.i ( this.getClass.getSimpleName, response.responseString )
+
 			}
 			override def onError ( error : VKError ) : Unit = {
 				Log.e ( this.getClass.getSimpleName, error.errorMessage )
@@ -52,7 +54,7 @@ object SocialMapper {
 	}
 	def mapFriends ( relationGraph : RelationGraph, person : Person, depth : Int = 1 ) : Unit = {
 		val req = new VKRequest ( "friends.get",
-			VKParameters.from ( VKApiConst.FIELDS, image_fields, VKApiConst.USER_ID, person.id ) )
+			VKParameters.from ( VKApiConst.FIELDS, image_fields, VKApiConst.USER_ID, person.vk_id ) )
 		req.executeWithListener ( new VKRequestListener ( ) {
 			override def onComplete ( response : VKResponse ) : Unit = {
 				//Log.i ( this.getClass.getSimpleName, response.responseString )
