@@ -11,7 +11,7 @@ targetSdkVersion in Android := "21"
 platformTarget in Android := "android-21"
 proguardScala in Android := true
 dexMulti in Android := true
-//useProguardInDebug := false
+useProguardInDebug := false
 javacOptions ++= Seq(
 	"-source", "1.7",
 	"-target", "1.7",

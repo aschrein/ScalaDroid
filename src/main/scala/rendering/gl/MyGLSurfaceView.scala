@@ -75,64 +75,58 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 			  |}""".stripMargin
 		)
 		override def onSurfaceCreated ( unused : GL10, config : EGLConfig ) : Unit = {
+			Natives.init()
 		}
-		lazy val atlas = new TextureAtlas ( 2048, 2048, 32 )
-		var uv_queue = new ArrayBuffer[ (Int, Int, Bitmap) ]( )
-		def updateUVMapping ( person_id : Int, person_view_id : Int, old_uv_mapping_id : Int, lod : Float ) = {
+		//lazy val atlas = new TextureAtlas ( 2048, 2048, 32 )
+		var uv_queue = new ArrayBuffer[ (Int, Bitmap) ]( )
+		def updateUVMapping ( person_id : Int, person_view_id : Int, lod : Float ) = {
 			val image_ld = new DownloadImageTask ( bitmap => {
 				renderer.synchronized {
-					uv_queue += Tuple3 ( person_view_id, old_uv_mapping_id, bitmap )
+					uv_queue += Tuple2 ( person_view_id, bitmap )
 				}
 			} )
 			image_ld.execute ( relationGraph.getUsers ( person_id ).image_url ( 0 ) )
 		}
-		val uv_requests = ByteBuffer.allocateDirect ( 4 + 4 * 4 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
-		var vertices = ByteBuffer.allocateDirect ( ( 8 + 8 ) * 6 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
-		val edges = ByteBuffer.allocateDirect ( 128 * 16 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
+		val uv_requests = ByteBuffer.allocateDirect ( 4 + 4 * 4 * 1024 * 512 ).order ( ByteOrder.LITTLE_ENDIAN )
+		//var vertices = ByteBuffer.allocateDirect ( ( 8 + 8 ) * 6 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
+		//val edges = ByteBuffer.allocateDirect ( 128 * 16 * 1024 ).order ( ByteOrder.LITTLE_ENDIAN )
 		val relation_map = new mutable.HashMap[(Person,Person),Int]()
 
 		override def onDrawFrame ( unused : GL10 ) : Unit = {
 			if ( relationGraph != null ) {
-				val viewproj = Camera.perspLook (
-					vec3 ( cam_point.x, cam_point.y, cam_z ),
-					vec3 ( cam_point.x, cam_point.y, 0.0f ), /// + vec3 ( 2.0f , 2.0f , 2.0f ),
-					vec3 ( 0.0f, 1.0f, 0.0f ),
-					1.0f, getHeight.toFloat / getWidth, 0.01f, 10000.0f
-				).T
-				glClearColor ( 1, 1, 1, 1 )
+				/*glClearColor ( 1, 1, 1, 1 )
 				glClearDepthf ( 1 )
 				glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
-				glViewport ( 0, 0, getWidth, getHeight )
+				glViewport ( 0, 0, getWidth, getHeight )*/
 				var newPesons : Seq[ Person ] = null
 				var newPairs : Seq[ (Person,Person)] = null
 				socialSubscriber synchronized {
-					newPesons = socialSubscriber.persons_added.clone()
-					socialSubscriber.persons_added.clear()
-					newPairs = socialSubscriber.pairs_added.clone()
-					socialSubscriber.pairs_added.clear()
+					newPesons = socialSubscriber.persons_added.clone ( )
+					socialSubscriber.persons_added.clear ( )
+					newPairs = socialSubscriber.pairs_added.clone ( )
+					socialSubscriber.pairs_added.clear ( )
 				}
 				newPesons.foreach ( u => if( u.view_id < 0 ) u.view_id = Natives.createView ( u.id ) )
 				newPairs.foreach( r => relation_map.getOrElseUpdate(r,Natives.createRelationView(r._1.view_id,r._2.view_id)))
-				var new_uv_queue = new ArrayBuffer[ (Int, Int, Bitmap) ]( )
+
+				var new_uv_queue = new ArrayBuffer[ (Int, Bitmap) ]( )
 				renderer.synchronized {
 					val old_uv_queue = uv_queue
 					uv_queue = new_uv_queue
 					new_uv_queue = old_uv_queue
 				}
-				val uv_responses = ByteBuffer.allocateDirect ( 4 + 4 * 2 * new_uv_queue.length ).order ( ByteOrder.LITTLE_ENDIAN )
+				val uv_responses = ByteBuffer.allocateDirect ( 4 + 4 * 4 * new_uv_queue.length ).order ( ByteOrder.LITTLE_ENDIAN )
 				uv_responses putInt new_uv_queue.length
 				new_uv_queue.foreach ( p => {
-					atlas.free ( p._2 )
-					val new_uv_mapping_id = atlas.allocate ( p._3 )
-					uv_responses putInt p._1 putInt new_uv_mapping_id
+					val texture = Texture( p._2 )
+					uv_responses putInt p._1 putInt texture.handle putInt texture.width putInt texture.height
 				} )
 				uv_requests.position ( 0 )
 				uv_requests putInt (0, 0)
 
+				Natives.render ( cam_point.x, cam_point.y, cam_z,getWidth , getHeight , uv_requests, uv_responses )
 
-				Natives.renderVertexBuffer ( atlas.getMappings, vertices,edges, uv_requests, uv_responses )
-
-				edges.position( 0 )
+				/*edges.position( 0 )
 				edges.limit( socialSubscriber.pairs_count * 16 )
 				val edge_buffer = new VertexBuffer ( edges, GL_STATIC_DRAW, Attribute ( 0, 2, GL_FLOAT, false ) )
 				line_program.bind ( )
@@ -156,15 +150,14 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 				glDrawArrays ( GL_TRIANGLES, 0, relationGraph.getUsers.length * 6 )
 				vertex_buffer.unbind ( )
 				vertex_buffer.dispose ( )
-				atlas.draw ( )
+				atlas.draw ( )*/
 				val requests_count = uv_requests.getInt
 				//Log.w ( "REQUESTS COUNT", requests_count.toString )
 				for ( i <- 0 until requests_count ) {
-					val person_view_id = uv_requests.getInt
 					val person_id = uv_requests.getInt
-					val old_uv_mapping_id = uv_requests.getInt
+					val person_view_id = uv_requests.getInt
 					val lod = uv_requests.getFloat
-					updateUVMapping ( person_id, person_view_id, old_uv_mapping_id, lod )
+					updateUVMapping ( person_id, person_view_id, lod )
 				}
 			}
 		}
@@ -197,7 +190,7 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 		//layouter = new Layouter ( relationGraphView )
 	}
 	var cam_point = vec2 ( 0.0f, 0.0f )
-	var cam_z = 2.0f
+	var cam_z = 50.0f
 	var last_mpos0 = vec2 ( 0.0f, 0.0f )
 	var last_mpos1 = vec2 ( 0.0f, 0.0f )
 	var last_avg = vec2 ( 0.0f, 0.0f )
@@ -251,7 +244,7 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 						val avg = ( mp1 + mp ) * 0.5f
 						val dist = ( mp1 - mp ).mod
 						val delta = avg - last_avg
-						cam_z -= ( dist - last_dist ) * Math.exp ( cam_z * 0.1f ).toFloat
+						cam_z -= ( dist - last_dist ) * Math.exp ( cam_z * 0.01f ).toFloat * 10.0f
 						cam_point += delta * cam_z
 						last_mpos0 = mp
 						last_avg = avg
@@ -262,14 +255,14 @@ class MyGLSurfaceView ( implicit val context : Context ) extends GLSurfaceView (
 						val avg = ( mp1 + mp ) * 0.5f
 						val dist = ( mp1 - mp ).mod
 						val delta = avg - last_avg
-						cam_z -= ( dist - last_dist ) * Math.exp ( cam_z * 0.1f ).toFloat
+						cam_z -= ( dist - last_dist ) * Math.exp ( cam_z * 0.01f ).toFloat * 10.0f
 						cam_point += delta * cam_z
 						last_mpos1 = mp
 						last_avg = avg
 						last_dist = dist
 					}
 				}
-				cam_z = Math.min ( 20.0f, Math.max ( 1.0f, cam_z ) )
+				cam_z = Math.min ( 500.0f, Math.max ( 1.0f, cam_z ) )
 			case _ =>
 		}
 		true

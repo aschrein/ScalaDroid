@@ -13,9 +13,8 @@ public class Natives
 	{
 		System.loadLibrary("natives");
 	}
-	static public native void renderVertexBuffer(
-			ByteBuffer uv_mappings_buf , ByteBuffer out_rects_buf , ByteBuffer out_edges_buf
-			, ByteBuffer uv_requests_buf , ByteBuffer uv_responses_buf );
+	static public native void render( float x , float y , float z , int width , int height , ByteBuffer requests_buf , ByteBuffer responses_buf );
+	static public native void init();
 	static public native int createView( int person_id );
 	static public native int createRelationView( int person_id0 , int person_id1 );
 }
