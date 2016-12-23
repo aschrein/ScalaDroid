@@ -189,7 +189,7 @@ struct View
 				host_buffer.add( v1.y );
 			}
 			dev_buffer.bind();
-			dev_buffer.setData( host_buffer.data , host_buffer.position * sizeof( float ) * 2 );
+			dev_buffer.setData( host_buffer.data , host_buffer.position * sizeof( float ) );
 			dev_buffer.unbind();
 			
 		}
@@ -272,9 +272,8 @@ struct View
 			0.0f , 0.0f , 1.0f , 0.0f ,
 			x , -y , 0.0f , z
 		};
-		pack();
+		
 		rects.update();
-		edges.update();
 		glBindFramebuffer( GL_FRAMEBUFFER , 0 );
 		glClearColor( 1 , 1 , 1 , 1 );
 		glClearDepthf( 1 );
@@ -285,6 +284,8 @@ struct View
 		glEnable( GL_BLEND );
 		glBlendFunc( GL_SRC_ALPHA , GL_ONE_MINUS_SRC_ALPHA );
 		glBlendEquation( GL_FUNC_ADD );
+		pack( x , y , z , width , height );
+		edges.update();
 		edges.draw( viewproj );
 		rects.draw( viewproj );
 		
@@ -299,35 +300,22 @@ struct View
 	{
 		return fmin( 1.0f , x );
 	}
-	void pack()
+	void pack( float x , float y , float z , int width , int height)
 	{
-		for( int32_t i = 0; i < spatial_states.position; i++ )
-		{
-			auto person_view = spatial_states.data[ i ];
-			for( int32_t j = i + 1; j < spatial_states.position; j++ )
-			{
-				auto &person_view1 = spatial_states.data[ j ];
-				float dx = person_view1.x - person_view.x;
-				float dy = person_view1.y - person_view.y;
-				float dist = ( dx * dx + dy * dy );
-				if( __isfinitef( dist ) && fabsf( dist ) > __FLT_EPSILON__ && fabsf( dist ) < 100.0f )
-				{
-					dist = sqrtf( dist );
-					dx /= dist;
-					dy /= dist;
-					float force = pushForce( dist );
-					spatial_states.data[ i ].x += dx * force;
-					spatial_states.data[ i ].y += dy * force;
-					person_view1.x -= dx * force;
-					person_view1.y -= dy * force;
-				}
-			}
-		}
+		float max_x = 0.0f , min_x = 0.0f , max_y = 0.0f , min_y = 0.0f;
 		for( int i = 0; i < relations.position; i++ )
 		{
 			auto relation = relations.data[ i ];
 			auto &v0 = spatial_states.data[ relation.person_view0 ];
 			auto &v1 = spatial_states.data[ relation.person_view1 ];
+			max_x = fmaxf( max_x , v0.x );
+			min_x = fminf( min_x , v0.x );
+			max_y = fmaxf( max_y , v0.y );
+			min_y = fminf( min_y , v0.y );
+			max_x = fmaxf( max_x , v1.x );
+			min_x = fminf( min_x , v1.x );
+			max_y = fmaxf( max_y , v1.y );
+			min_y = fminf( min_y , v1.y );
 			float dx = v1.x - v0.x;
 			float dy = v1.y - v0.y;
 			float dist = ( dx * dx + dy * dy );
@@ -336,13 +324,68 @@ struct View
 				dist = sqrtf( dist );
 				dx /= dist;
 				dy /= dist;
-				float force = ( pushForce( dist * 0.1f ) * 2.0f + pullForce( dist ) ) * 1.6f;
+				float force = ( pushForce( dist * 0.04f ) * 1.0f + pullForce( dist ) ) * 1.6f;
 				v0.x += dx * force;
 				v0.y += dy * force;
 				v1.x -= dx * force;
 				v1.y -= dy * force;
 			}
 		}
+		//__android_log_print( ANDROID_LOG_VERBOSE , "NATIVE" , "size(%f,%f,%f)\n" ,
+		//	( max_x + min_x ) * 0.5f , ( max_y + min_y ) * 0.5f , fmaxf( fabsf( max_x - min_x ) , fabsf( max_y - min_y ) ) * 0.5f );
+		QuadTree tree( ( max_x + min_x ) * 0.5f , ( max_y + min_y ) * 0.5f , fmaxf( max_x - min_x , max_y - min_y ) * 0.5f );
+		for( int32_t i = 0; i < spatial_states.position; i++ )
+		{
+			auto sstate = spatial_states.data[ i ];
+			tree.addItem( { i ,sstate.x,sstate.y,0.1f } );
+		}
+		Array< int32_t > indices;
+		for( int32_t i = 0; i < spatial_states.position; i++ )
+		{
+			auto &sstate = spatial_states.data[ i ];
+			indices.position = 0;
+			tree.fillColided( sstate.x , sstate.y , 10.0f , indices );
+			//
+			for( int32_t j = 0; j < indices.position; j++ )
+			{
+				auto &sstate1 = spatial_states.data[ indices.data[ j ] ];
+				float dx = sstate1.x - sstate.x;
+				float dy = sstate1.y - sstate.y;
+				float dist = ( dx * dx + dy * dy );
+				if( __isfinitef( dist ) && fabsf( dist ) > __FLT_EPSILON__ && fabsf( dist ) < 100.0f )
+				{
+					dist = sqrtf( dist );
+					dx /= dist;
+					dy /= dist;
+					float force = pushForce( dist * 2 );
+					sstate.x += dx * force;
+					sstate.y += dy * force;
+					sstate1.x -= dx * force;
+					sstate1.y -= dy * force;
+				}
+			}
+		}
+		indices.dispose();
+		float viewproj[] =
+		{
+			-1.0f , 0.0f , 0.0f , 0.0f ,
+			0.0f , float( width ) / height , 0.0f , 0.0f ,
+			0.0f , 0.0f , 1.0f , 0.0f ,
+			x , -y , 0.0f , z
+		};
+		Array< float > lines;
+		tree.fillLines( lines );
+		//__android_log_print( ANDROID_LOG_VERBOSE , "NATIVE" , "lines count %i\n" , lines.position );
+		edges.dev_buffer.bind();
+		edges.dev_buffer.setData( lines.data , lines.position * sizeof( float ) );
+		edges.program.bind();
+		glUniform4f( edges.ucolor , 0.0f , 0.0f , 0.0f , 1.0f );
+		glUniformMatrix4fv( edges.uviewproj , 1 , false , viewproj );
+		glDrawArrays( GL_LINES , 0 , lines.position );
+		edges.dev_buffer.unbind();
+		lines.dispose();
+		
+		tree.dispose();
 	}
 
 };

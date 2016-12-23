@@ -22,18 +22,23 @@ object SocialMapper {
 			if ( id != null ) VKParameters.from ( VKApiConst.FIELDS,image_fields , VKApiConst.USER_ID, id )
 			else VKParameters.from ( VKApiConst.FIELDS, image_fields )
 		)
+		req.attempts = 10
 		req.executeWithListener ( new VKRequestListener ( ) {
 			override def onComplete ( response : VKResponse ) : Unit = {
 				println(  response.responseString )
 				val json = new JSONObject ( response.responseString )
 				val resp = json.getJSONArray ( "response" )
-				val item = resp.getJSONObject ( 0 )
-				val person = parsePerson( relationGraph,item )
-				mapFriends ( relationGraph, person )
+				if( resp.length() > 0) {
+					val item = resp.getJSONObject ( 0 )
+					val person = parsePerson ( relationGraph, item )
+					mapFriends ( relationGraph, person )
+				} else {
+					req.repeat()
+				}
 
 			}
 			override def onError ( error : VKError ) : Unit = {
-				Log.e ( this.getClass.getSimpleName, error.errorMessage )
+				Log.e ( this.getClass.getSimpleName, "request error" )
 			}
 			override def attemptFailed ( request : VKRequest, attemptNumber : Int, totalAttempts : Int ) : Unit = {
 				Log.e ( this.getClass.getSimpleName, "attemptFailed" )
